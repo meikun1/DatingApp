@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "229756555519",
+    "project_id": "datting-app-58859",
+    "storage_bucket": "datting-app-58859.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:229756555519:android:891da99db963af8b2dbcca",
+        "android_client_info": {
+          "package_name": "com.example.DatingApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQELMJ3PskECtTx7njthXey8uJQ09Sm1k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
