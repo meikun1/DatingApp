@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context=".ImagesFragment"
+    android:id="@+id/imgContainer">
+
+    <!-- TextView with centered alignment above the ImageView -->
+    <TextView
+        android:id="@+id/txtView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Slider Num"
+        app:layout_constraintBottom_toTopOf="@id/imgView"
+        app:layout_constraintStart_toStartOf="@id/imgContainer"
+        app:layout_constraintEnd_toEndOf="@id/imgContainer"
+        android:gravity="center"
+        android:textSize="16sp"
+        android:textStyle="bold"/>
+
+    <!-- ImageView taking the full width and height of the parent -->
+    <ImageView
+        android:id="@+id/imgView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:src="@drawable/ic_launcher_background"
+        app:layout_constraintStart_toStartOf="@id/imgContainer"
+        app:layout_constraintEnd_toEndOf="@id/imgContainer"
+        app:layout_constraintTop_toTopOf="@id/imgContainer"
+        app:layout_constraintBottom_toBottomOf="@id/imgContainer"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
