@@ -1,5 +1,6 @@
 package com.example.DatingApp;
 
+import com.example.DatingApp.R;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -37,7 +38,6 @@ import com.google.android.gms.location.LocationServices;
 import com.google.firebase.firestore.GeoPoint;
 import java.util.List;
 
-
 public class MainAppActivity extends AppCompatActivity {
 
 	public static final String TAG = "MainApp";
@@ -63,54 +63,6 @@ public class MainAppActivity extends AppCompatActivity {
 				.addToBackStack(null)  //
 				.commit();
 	}
-
-	private final BottomNavigationView.OnNavigationItemSelectedListener mOnNavigationItemSelectedListener = new BottomNavigationView.OnNavigationItemSelectedListener() {
-		@SuppressLint("NonConstantResourceId")
-		@Override
-		public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-
-			switch (item.getItemId()) {
-				case R.id.nav_home:
-					setTitle(R.string.online);
-					selectedFragment = new OnlineFragment();
-
-					if (!shouldStartLocationUpdates) {
-						startLocationUpdates();
-						shouldStartLocationUpdates = true;
-					}
-					break;
-
-				case R.id.nav_chat:
-					setTitle(R.string.messages);
-					selectedFragment = new MessagesFragment();
-
-					if (shouldStartLocationUpdates) {
-						stopLocationUpdates();
-						shouldStartLocationUpdates = false;
-					}
-					break;
-
-				case R.id.nav_favs:
-					setTitle(R.string.favourites);
-					selectedFragment = new FavouritesFragment();
-
-					if (shouldStartLocationUpdates) {
-						stopLocationUpdates();
-						shouldStartLocationUpdates = false;
-					}
-					break;
-			}
-
-			if (selectedFragment != null) {
-				Bundle bundle = new Bundle();
-				bundle.putBinder("binder", binder);  // Передача binder
-				selectedFragment.setArguments(bundle);
-				switchFragment(selectedFragment);  // Используем наш новый метод
-			}
-
-			return true;
-		}
-	};
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -158,10 +110,41 @@ public class MainAppActivity extends AppCompatActivity {
 			}
 		};
 
-		BottomNavigationView navigation = findViewById(R.id.navigation);
 		progressBar = findViewById(R.id.progressBarFragments);
 		progressLbl = findViewById(R.id.progressLabel);
-		navigation.setOnNavigationItemSelectedListener(mOnNavigationItemSelectedListener);
+
+		// Инициализация BottomNavigationView
+		BottomNavigationView navigation = findViewById(R.id.navigation);
+		navigation.setOnItemSelectedListener(new BottomNavigationView.OnItemSelectedListener() {
+			@Override
+			public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+				switch (item.getItemId()) {
+					case R.id.nav_home:
+						setTitle(R.string.online);
+						selectedFragment = new OnlineFragment();
+						break;
+
+					case R.id.nav_chat:
+						setTitle(R.string.messages);
+						selectedFragment = new MessagesFragment();
+						break;
+
+					case R.id.nav_favs:
+						setTitle(R.string.favourites);
+						selectedFragment = new FavouritesFragment();
+						break;
+				}
+
+				if (selectedFragment != null) {
+					Bundle bundle = new Bundle();
+					bundle.putBinder("binder", binder);
+					selectedFragment.setArguments(bundle);
+					switchFragment(selectedFragment);
+				}
+
+				return true;
+			}
+		});
 
 		fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 		getLocation();
