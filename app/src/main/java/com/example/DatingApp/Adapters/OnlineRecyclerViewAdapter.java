@@ -1,5 +1,6 @@
 package com.example.DatingApp.Adapters;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import androidx.annotation.NonNull;
@@ -43,7 +44,7 @@ public class OnlineRecyclerViewAdapter extends RecyclerView.Adapter<OnlineRecycl
     }
 
     @Override
-    public void onBindViewHolder(OnlineRecyclerViewAdapter.ViewHolder holder, final int position) {
+    public void onBindViewHolder(OnlineRecyclerViewAdapter.ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
         Log.d(TAG, "onBindViewHolder: called.");
 
         holder.userName.setText(mImageNames.get(position));

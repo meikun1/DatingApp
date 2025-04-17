@@ -2,6 +2,8 @@ package com.example.DatingApp.Adapters;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import android.annotation.SuppressLint;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -38,7 +40,7 @@ public class ChatThreadsRecyclerViewAdapter extends RecyclerView.Adapter<Recycle
 	}
 	
 	@Override
-	public void onBindViewHolder(@NonNull RecyclerView.ViewHolder recyclerViewHolder, final int i) {
+	public void onBindViewHolder(@NonNull RecyclerView.ViewHolder recyclerViewHolder, @SuppressLint("RecyclerView") final int i) {
 		pos = i+1;
 		ViewHolder viewHolder;
 		MyViewHolder myViewHolder;

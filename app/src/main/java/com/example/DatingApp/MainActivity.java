@@ -29,9 +29,6 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.messaging.FirebaseMessaging;
 
-import com.google.firebase.installations.FirebaseInstallations;
-import com.google.firebase.installations.InstallationTokenResult;
-import com.google.firebase.messaging.FirebaseMessaging;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -65,40 +62,40 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-	    FirebaseMessaging.getInstance().setAutoInitEnabled(true);
+        FirebaseMessaging.getInstance().setAutoInitEnabled(true);
 
-	    checkDeviceVersion();
+        checkDeviceVersion();
         checkIfHasExtrasFromNotification();
 
         serviceConnection = new ServiceConnection() {
-	        @Override
-	        public void onServiceConnected(ComponentName name, IBinder service) {
-		        MyDBService.MyLocalBinder binder = (MyDBService.MyLocalBinder) service;
-		        myService = binder.getService();
-		        isBound = true;
-	        }
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder service) {
+                MyDBService.MyLocalBinder binder = (MyDBService.MyLocalBinder) service;
+                myService = binder.getService();
+                isBound = true;
+                Log.d(TAG, "Service connected");
+            }
 
-	        @Override
-	        public void onServiceDisconnected(ComponentName name) {
-				isBound = false;
-	        }
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+                isBound = false;
+                Log.d(TAG, "Service disconnected");
+            }
         };
-	    Intent intent = new Intent(MainActivity.this, MyDBService.class);
-	    bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
 
-	    Log.d(TAG, "onCreate: SharedPrefs "+getSharedPreferences(USER_SP,MODE_PRIVATE).getAll().toString());
+        Intent intent = new Intent(MainActivity.this, MyDBService.class);
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+
+        Log.d(TAG, "onCreate: SharedPrefs " + getSharedPreferences(USER_SP, MODE_PRIVATE).getAll().toString());
 
         LinearLayout linearLayout = findViewById(R.id.linearLayout);
 
         checkConnectionToIntenet(linearLayout);
 
-
         firebaseAuth = FirebaseAuth.getInstance();
         currentUser = firebaseAuth.getCurrentUser();
         List<AuthUI.IdpConfig> providers = Arrays.asList(
                 new AuthUI.IdpConfig.GoogleBuilder().build(),
-//                    new AuthUI.IdpConfig.FacebookBuilder().build(),
-//                    new AuthUI.IdpConfig.TwitterBuilder().build(),
                 new AuthUI.IdpConfig.PhoneBuilder().build()
         );
 
@@ -112,8 +109,6 @@ public class MainActivity extends AppCompatActivity {
                         .build(),
                 RC_SIGN_IN);
 
-
-
         try {
             AndroidFirebaseSDK();
         } catch (IOException e) {
@@ -122,10 +117,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkConnectionToIntenet(LinearLayout linearLayout) {
-        //Check if connection is Available
+        // Check if connection is available
         if (!isNetworkAvailable()) {
             Snackbar.make(linearLayout, "No connection has been found", Snackbar.LENGTH_LONG).show();
-
         }
     }
 
@@ -138,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
     private void checkDeviceVersion() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Create channel to show notifications.
-            String channelId  = getString(R.string.default_notification_channel_id);
+            String channelId = getString(R.string.default_notification_channel_id);
             String channelName = getString(R.string.default_notification_channel_name);
             NotificationManager notificationManager =
                     getSystemService(NotificationManager.class);
@@ -148,43 +142,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkIfHasExtrasFromNotification() {
-        // If a notification message is tapped, any data accompanying the notification
-        // message is available in the intent extras. In this sample the launcher
-        // intent is fired when the notification is tapped, so any accompanying data would
-        // be handled here. If you want a different intent fired, set the click_action
-        // field of the notification message to the desired intent. The launcher intent
-        // is used when no click_action is specified.
-        //
         // Handle possible data accompanying notification message.
-        // [START handle_data_extras]
         if (getIntent().getExtras() != null) {
             for (String key : getIntent().getExtras().keySet()) {
                 Object value = getIntent().getExtras().get(key);
                 Log.d(TAG, "Key: " + key + " Value: " + value);
             }
         }
-        // [END handle_data_extras]
     }
 
     private void subscribeToTopic(String topic) {
-        // [START subscribe_topics]
         FirebaseMessaging.getInstance().subscribeToTopic(topic)
                 .addOnCompleteListener(new OnCompleteListener<Void>() {
                     @Override
                     public void onComplete(@NonNull Task<Void> task) {
                         String msg = getString(R.string.msg_subscribed);
                         if (!task.isSuccessful()) {
-                            Log.d(TAG, "onComplete: "+R.string.msg_subscribe_failed);
+                            Log.d(TAG, "Subscription failed");
                         }
                         Log.d(TAG, msg);
                     }
                 });
-        // [END subscribe_topics]
     }
 
     private void saveTokenToDB() {
-        // Получаем токен
-        // [START retrieve_current_token]
+        // Get the token
         FirebaseMessaging.getInstance().getToken()
                 .addOnCompleteListener(new OnCompleteListener<String>() {
                     @Override
@@ -193,16 +175,16 @@ public class MainActivity extends AppCompatActivity {
                             Log.w(TAG, "getInstanceId failed", task.getException());
                             return;
                         }
-                        // Получаем новый Instance ID токен
+                        // Get the new instance ID token
                         String token = task.getResult();
 
-                        // Сохраняем токен в базе данных Firebase
+                        // Save the token to Firebase database
                         user = new HashMap<>();
                         user.put(TOKEN_DB, token);
                         user.put(UID_DB, currentUser.getUid());
                         user.put(NAME_DB, currentUser.getDisplayName());
 
-                        // Добавляем проверку на null для URL фото
+                        // Add a null check for photo URL
                         String photoUrl = currentUser.getPhotoUrl() != null ? currentUser.getPhotoUrl().toString() : "";
                         user.put(IMG_URL_DB, photoUrl);
 
@@ -213,42 +195,40 @@ public class MainActivity extends AppCompatActivity {
                             myService.updateFieldInUsersTokens(user);
                             addToSharedPrefs(myService.getFirestore());
 
-                            // Сохраняем UID в SharedPreferences
+                            // Save UID in SharedPreferences
                             sharedPreferences.edit().putString(USER_UID_SP, currentUser.getUid()).apply();
 
-                            // Подписываемся на топик
+                            // Subscribe to topic
                             subscribeToTopic("general");
 
-                            // Переходим на новый экран
+                            // Go to the next screen
                             Intent intent = new Intent(MainActivity.this, MainAppActivity.class);
                             startActivity(intent);
                         } else {
-                            // Если UID уже существует, обновляем данные в базе
+                            // If UID exists, update the data in the database
                             updateUserToDB(null);
                         }
 
-                        // Логируем и показываем тост
+                        // Log and show toast
                         String msg = getString(R.string.msg_token_fmt, token);
                         Log.d(TAG, msg);
                         Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
                     }
                 });
-        // [END retrieve_current_token]
     }
 
-
     private void updateUserToDB(String fileId) {
-        if(fileId == null){
-            fileId = getSharedPreferences(USER_SP, MODE_PRIVATE).getString(FIRESTORE_UID_SP,null);
-            Log.d("FileID", "updateUserToDB: "+fileId);
-        }else {
+        if (fileId == null) {
+            fileId = getSharedPreferences(USER_SP, MODE_PRIVATE).getString(FIRESTORE_UID_SP, null);
+            Log.d(TAG, "FileID: " + fileId);
+        } else {
             addToSharedPrefs(fileId);
         }
 
         myService.updateFieldInUsersTokens(user);
-	    subscribeToTopic("general");
-	    Intent intent = new Intent(MainActivity.this, MainAppActivity.class);
-	    startActivity(intent);
+        subscribeToTopic("general");
+        Intent intent = new Intent(MainActivity.this, MainAppActivity.class);
+        startActivity(intent);
     }
 
     private void AndroidFirebaseSDK() throws IOException {
@@ -257,10 +237,8 @@ public class MainActivity extends AppCompatActivity {
 
         FirebaseOptions options = new FirebaseOptions.Builder()
                 .setApiKey("AAAA-Fp1ji4:APA91bHLh1u989ujPYCWnSdQpgcwJnDlSHXu-kKYQ4x9pDhNFL0YcdZwzkxcKA_TLv5AtpCUw9DHwDOI26xV297KwqbCviTAgzjNQnaBEZy5j67Ewrrvpvzni_2gkC7eiPd4F6sk8jfV")
-//                .setCredentials(GoogleCredential.fromStream(serviceAccount))
                 .setDatabaseUrl("https://mychatapplicationpp.firebaseio.com")
                 .build();
-
 
         FirebaseApp.initializeApp(this, options);
     }
@@ -269,21 +247,21 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        // Result returned from launching the Intent from GoogleSignInApi.getSignInIntent(...);
         if (requestCode == RC_SIGN_IN) {
-                // Google Sign In was successful, authenticate with Firebase
+            // Google Sign In was successful, authenticate with Firebase
             currentUser = firebaseAuth.getCurrentUser();
-	        Intent intent = new Intent(this, MyDBService.class);
-	        startService(intent);
-            Log.d(TAG, "onActivityResult: "+ currentUser.getDisplayName());
-            saveTokenToDB();
+            if (currentUser != null) {
+                Log.d(TAG, "onActivityResult: " + currentUser.getDisplayName());
+                saveTokenToDB();
+            } else {
+                Log.e(TAG, "User not authenticated");
+            }
         }
     }
+
     private void addToSharedPrefs(String documentId) {
-        SharedPreferences sharedPreferences = getSharedPreferences(USER_SP,MODE_PRIVATE);
-        //firestore database uid for user document
+        SharedPreferences sharedPreferences = getSharedPreferences(USER_SP, MODE_PRIVATE);
         sharedPreferences.edit().putString(FIRESTORE_UID_SP, documentId).apply();
-        //firebase use generated uid
         sharedPreferences.edit().putString(USER_UID_SP, currentUser.getUid()).apply();
     }
 
@@ -303,4 +281,3 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
-

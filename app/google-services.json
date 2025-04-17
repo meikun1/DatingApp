@@ -12,7 +12,12 @@
           "package_name": "com.example.DatingApp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "229756555519-qormjvl91gqd6vprigkuj6dugvtsumu2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBQELMJ3PskECtTx7njthXey8uJQ09Sm1k"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "229756555519-qormjvl91gqd6vprigkuj6dugvtsumu2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

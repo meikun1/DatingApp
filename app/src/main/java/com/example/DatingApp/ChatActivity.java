@@ -76,7 +76,7 @@ public class ChatActivity extends AppCompatActivity {
 		};
 
         Intent intent = new Intent(ChatActivity.this, MyDBService.class);
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        myService.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
         
         if(savedInstanceState == null) {
 		        Bundle extras = getIntent().getExtras();

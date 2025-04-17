@@ -1,5 +1,6 @@
 package com.example.DatingApp.MainAppFragments;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -123,7 +124,7 @@ public class MessagesFragment extends Fragment {
 		}
 		
 		@Override
-		public void onBindViewHolder(@NonNull final ViewHolder holder, final int position) {
+		public void onBindViewHolder(@NonNull final ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
 			Log.d(TAG, "onBindViewHolder: called.");
 			
 			holder.nameLbl.setText(users.get(position).getName());

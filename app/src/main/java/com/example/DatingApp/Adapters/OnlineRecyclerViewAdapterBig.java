@@ -1,5 +1,6 @@
 package com.example.DatingApp.Adapters;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -40,7 +41,7 @@ public class OnlineRecyclerViewAdapterBig extends RecyclerView.Adapter<OnlineRec
     }
 
     @Override
-    public void onBindViewHolder(OnlineRecyclerViewAdapterBig.ViewHolder holder, final int position) {
+    public void onBindViewHolder(OnlineRecyclerViewAdapterBig.ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
         Log.d(TAG, "onBindViewHolder: called.");
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if(position == 0) {
