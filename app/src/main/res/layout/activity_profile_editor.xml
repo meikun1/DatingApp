@@ -4,10 +4,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
     tools:context=".ProfileEditorActivity">
 
+    <!-- ProgressBar -->
     <ProgressBar
+        android:id="@+id/progressBarInfo"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="100dp"
@@ -16,20 +17,22 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:elevation="4dp"
-        android:id="@+id/progressBarInfo"
         android:visibility="gone"/>
 
+    <!-- ScrollView for form content -->
     <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:id="@+id/scroll"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/btnChat">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- About Section -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -37,14 +40,15 @@
                 android:text="@string/about" />
 
             <EditText
+                android:id="@+id/about"
                 android:layout_width="match_parent"
                 android:layout_height="200dp"
                 android:fontFamily="@font/dosis_extra_light"
                 android:hint="Write a little bit about yourself (Cannot exceed 170 character)."
                 android:textSize="16sp"
-                android:id="@+id/about"
                 android:focusedByDefault="false"/>
 
+            <!-- Birth date section -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -54,9 +58,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/dosis_extra_light"
-                android:gravity="center_vertical|center_horizontal"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical|center_horizontal">
 
                 <NumberPicker
                     android:id="@+id/day"
@@ -78,9 +81,10 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_horizontal|center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_horizontal|center_vertical">
 
+                <!-- Height -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -101,6 +105,7 @@
                         android:fontFamily="@font/dosis_extra_light" />
                 </LinearLayout>
 
+                <!-- Weight -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -208,15 +213,17 @@
         </LinearLayout>
     </ScrollView>
 
+    <!-- FloatingActionButton -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnChat"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:src="@drawable/ic_save_grey_24dp"
         android:padding="15dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:id="@+id/btnChat"
         android:layout_margin="20dp"
-        android:onClick="editProfile" />
+        android:onClick="editProfile"
+        android:contentDescription="Save profile and navigate to main app" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

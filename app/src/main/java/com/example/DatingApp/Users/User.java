@@ -45,6 +45,9 @@ public class User implements Serializable, Comparable<User> {
 		this.info = info;
 		this.favs = favs;
 	}
+	public void setName(String name) {
+		this.name = name;
+	}
 	
 	public List<String> getFavs() {
 		return favs;

@@ -16,17 +16,20 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 
+
+import com.example.DatingApp.Services.RoomCallback;
+
+import com.example.DatingApp.Chat.Room;
 import com.example.DatingApp.Adapters.ChatThreadsRecyclerViewAdapter;
 import com.example.DatingApp.Chat.Message;
-import com.example.DatingApp.Chat.Room;
 import com.example.DatingApp.Services.MyDBService;
 import com.example.DatingApp.Users.MyUser;
 import com.example.DatingApp.Users.User;
 import com.google.firebase.Timestamp;
-import com.google.firebase.firestore.FirebaseFirestore;
-
 import org.json.JSONException;
 import org.json.JSONObject;
+
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -37,19 +40,16 @@ public class ChatActivity extends AppCompatActivity {
 
     public static final String TAG = "ChatActivity";
     public static final String ROOMS_DB = "rooms";
-	public static final String MESSAGES_DB = "messages";
-	public static final String USERS_TOKENS_DB = "users_tokens";
-	public static final String USER_SP = "user";
-	public static final String USER_UID_SP = "user_uid";
-	
-	private Button sendBtn;
-	private ProgressBar progressBar;
-	private EditText msg;
-	private User userQueried;
-	private MyUser otherUser;
-    private FirebaseFirestore mDatabase;
-    private ChatThreadsRecyclerViewAdapter adapter;
-    private LinearLayoutManager linearLayoutManager;
+    public static final String MESSAGES_DB = "messages";
+    public static final String USERS_TOKENS_DB = "users_tokens";
+    public static final String USER_SP = "user";
+    public static final String USER_UID_SP = "user_uid";
+
+    private Button sendBtn;
+    private ProgressBar progressBar;
+    private EditText msg;
+    private User userQueried;
+    private MyUser otherUser;
     private RecyclerView listOfMessages;
     private String room, uid, newChatUserUID;
     private String message;
@@ -61,129 +61,106 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        serviceConnection = new ServiceConnection() {
-			@Override
-			public void onServiceConnected(ComponentName name, IBinder service) {
-				MyDBService.MyLocalBinder binder = (MyDBService.MyLocalBinder) service;
-				myService = binder.getService();
-				isBound = true;
-			}
 
-			@Override
-			public void onServiceDisconnected(ComponentName name) {
-				isBound = false;
-			}
-		};
+        // Bind service to load chat data
+        serviceConnection = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder service) {
+                MyDBService.MyLocalBinder binder = (MyDBService.MyLocalBinder) service;
+                myService = binder.getService();
+                isBound = true;
+                // Now that the service is bound, we can load chat data.
+                loadChatInfo();
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+                isBound = false;
+            }
+        };
 
         Intent intent = new Intent(ChatActivity.this, MyDBService.class);
-        myService.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-        
-        if(savedInstanceState == null) {
-		        Bundle extras = getIntent().getExtras();
-	        if (extras != null) {
-		        otherUser = (MyUser) extras.getSerializable("other_user");
-		        room = extras.getString("room");
-	        }
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+
+        if (savedInstanceState == null) {
+            Bundle extras = getIntent().getExtras();
+            if (extras != null) {
+                otherUser = (MyUser) extras.getSerializable("other_user");
+                room = extras.getString("room");
+            }
         }
         setContentView(R.layout.activity_chat);
 
-	    uid = getSharedPreferences(USER_SP, MODE_PRIVATE).getString(USER_UID_SP, null);
-        View view = findViewById(R.id.lyout);
+        uid = getSharedPreferences(USER_SP, MODE_PRIVATE).getString(USER_UID_SP, null);
         msg = findViewById(R.id.inptMessage);
         listOfMessages = findViewById(R.id.list_of_messages);
         progressBar = findViewById(R.id.progressBarSendMsg);
         sendBtn = findViewById(R.id.sendBtn);
-        
-        linearLayoutManager = new LinearLayoutManager(getApplicationContext(),
-                LinearLayoutManager.VERTICAL,
-                false);
+
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
         listOfMessages.setLayoutManager(linearLayoutManager);
 
-        new CheckRoomsValidity().execute();
-
-        if(otherUser != null){
-	        new GetUserInfo().execute(otherUser.getUid());
+        // Load user info if available
+        if (otherUser != null) {
+            loadUserInfo(otherUser.getUid());
         }
     }
 
-    private class GetChatList extends AsyncTask<Void, Void, Void> {
-	
-	    @Override
-		protected Void doInBackground(Void... voids) {
-			while (myService == null) {
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+
+    private void loadChatInfo() {
+        if (myService != null && room != null) {
+            // Передаем идентификатор комнаты и коллбек
+            myService.getRoom(room, new RoomCallback() {
+                @Override
+                public void onRoomLoaded(Room room) {
+                    // Обрабатываем загруженную комнату
+                    List<Message> msgs = room.getMessages();  // Получаем сообщения
+                    setIsItMeByToFrom(msgs);  // Устанавливаем, кто из сообщений отправил
+                    ChatThreadsRecyclerViewAdapter adapter = new ChatThreadsRecyclerViewAdapter(msgs);
+                    listOfMessages.setAdapter(adapter);  // Устанавливаем адаптер для RecyclerView
                 }
-            }
 
-			Room rm = myService.getChatList(room);
-			List<Message> msgs = rm.getMessages();
-            setIsItMeByToFrom(msgs);
-            adapter = new ChatThreadsRecyclerViewAdapter(rm.getMessages());
-			adapter.notifyDataSetChanged();
-			listOfMessages.setAdapter(adapter);
-
-			return null;
-		}
-
-	}
-
-	private class CheckRoomsValidity extends AsyncTask<Void, Void, List<Message>> {
-
-	    @Override
-		protected List<Message> doInBackground(Void... voids) {
-			while (myService == null) {
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                @Override
+                public void onError(Exception e) {
+                    // Обрабатываем ошибку
+                    Log.e(TAG, "Ошибка при загрузке комнаты", e);
                 }
-            }
+            });
+        }
+    }
 
-            if(room == null){
-                List<String> rooms = otherUser.getMessages();
-                List<String> myRooms = myService.getCurrentUser().getMessages();
-                for (int i = 0; i < rooms.size(); i++) {
-                    for (int j = 0; j < myRooms.size(); j++) {
-                        if (rooms.get(i).equals(myRooms.get(j))){
-                            room = rooms.get(i);
-                        }
-                    }
+
+
+
+
+    private void loadUserInfo(String uid) {
+        if (myService != null) {
+            myService.getUserByUID(uid, new MyDBService.OnUserLoadedListener() {
+                @Override
+                public void onUserLoaded(User user) {
+                    userQueried = user;
+                    // Update UI or perform further actions
+                    Log.d(TAG, "User loaded: " + user.getName());
                 }
-            }
-            
-            while (room == null){
-	            try {
-		            Thread.sleep(2000);
-	            } catch (InterruptedException e) {
-		            e.printStackTrace();
-	            }
-            }
-            
-		    List<Message> msgs = myService.getRoom(room).getMessages();
-		    setIsItMeByToFrom(msgs);
-			return msgs;
-		}
-		
-		@Override
-		protected void onPostExecute(List<Message> msgs) {
-			adapter = new ChatThreadsRecyclerViewAdapter(msgs);
-			adapter.notifyDataSetChanged();
-			listOfMessages.setAdapter(adapter);
-		}
-	}
+
+                @Override
+                public void onError(Exception e) {
+                    Log.e(TAG, "Error loading user info", e);
+                }
+            });
+        }
+    }
 
     public void sendMsg(View view) throws JSONException {
         Log.d(TAG, "sendMsg: entered");
 
-        // Read the input field and push a new instance
-        // of ChatMessage to the Firebase database
         message = msg.getText().toString().trim();
 
-//        String targetedToken = "fMOApYyHu2g:APA91bGkGyDHcKBWgQNWt_tbPdYimb1fEJAvMDlDBv0TrrW1VoRt79q9Necxv4VuAaU37bpM0OI01yvnXx5j9eaGVjDqC8fm6DZcvnnGyeLylkqB4S-ggKc1hyvlgb7EcHim6ON-LSBp";
-	    String targetedToken = otherUser.getToken();
+        if (message.isEmpty()) {
+            return;
+        }
+
+        String targetedToken = otherUser.getToken();
         String targetedName = "New message";
         JSONObject jsonObj = new JSONObject();
         JSONObject jsonData = new JSONObject();
@@ -191,70 +168,67 @@ public class ChatActivity extends AppCompatActivity {
         jsonData.put("body", message);
         jsonObj.put("data", jsonData);
         jsonObj.put("to", targetedToken);
+
         new SendMessageTask().execute(jsonObj.toString());
 
-
-        Log.d(TAG, "sendMsg: after firebase action");
-        // Clear the input
-        msg.setText("");
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-//        adapter.stopListening();
-    }
-    @Override
-    protected void onStart() {
-        super.onStart();
-//        adapter.startListening();
+        msg.setText(""); // Clear the input field
     }
 
     private class SendMessageTask extends AsyncTask<String, Void, List<Message>> {
-	    @Override
-	    protected void onPreExecute() {
-		    super.onPreExecute();
-		    progressBar.setVisibility(View.VISIBLE);
-		    sendBtn.setVisibility(View.GONE);
-	    }
-	
-	    @Override
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            progressBar.setVisibility(View.VISIBLE);
+            sendBtn.setVisibility(View.GONE);
+        }
+
+        @Override
         protected List<Message> doInBackground(String... strings) {
-	        //Send a notification
             String url = "https://fcm.googleapis.com/fcm/send";
             try {
-                httpPostFCM(url,strings[0]);
+                httpPostFCM(url, strings[0]);
             } catch (IOException e) {
-                Log.d("MainActivity","error on catch doInBackground"+e);
+                Log.d(TAG, "Error sending message", e);
             }
-            //loop until service is available
-            while (myService == null){
-	            try {
-		            Thread.sleep(2000);
-	            } catch (InterruptedException e) {
-		            e.printStackTrace();
-	            }
-            }
-            Message message1 = new Message(message,
-                    Timestamp.now(),
-                    Arrays.asList(otherUser.getUid(), uid));
+
+            // Добавляем сообщение в комнату
+            Message message1 = new Message(message, Timestamp.now(), Arrays.asList(otherUser.getUid(), uid));
             String roomID = null;
-		    if(room != null
-                    && otherUser.getToken() != null
-                    && otherUser.getUid() != null){
-		        myService.addMessagetoARoom(room, message1);
-		        roomID = room;
 
-		    }else if(otherUser != null) {
-			    roomID = myService.addNewRoomAndMessage(
-					    otherUser.getDocID(),
-					    otherUser.getUid(),
-					    message1);
-		    }
-		    List<Message> msgs = myService.getRoom(roomID).getMessages();
-            setIsItMeByToFrom(msgs);
+            // Проверяем, если комната существует
+            if (room != null && otherUser.getToken() != null && otherUser.getUid() != null) {
+                myService.addMessageToRoom(room, message1);
+                roomID = room;
+            } else if (otherUser != null) {
+                roomID = myService.addNewRoomAndMessage(otherUser.getDocID(), otherUser.getUid(), message1);
+            }
 
-            return msgs;
+            // Теперь вызываем getRoom с коллбеком
+            final List<Message>[] msgs = new List[1];  // Используем массив для хранения результатов
+
+            myService.getRoom(roomID, new RoomCallback() {
+                @Override
+                public void onRoomLoaded(Room room) {
+                    msgs[0] = room.getMessages();  // Заполняем сообщения
+                    setIsItMeByToFrom(msgs[0]);  // Обрабатываем сообщения
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    Log.e(TAG, "Ошибка при загрузке комнаты", e);
+                }
+            });
+
+            // Пауза для того, чтобы дождаться асинхронной операции (хотя это не самый хороший способ)
+            while (msgs[0] == null) {
+                try {
+                    Thread.sleep(100);  // Даем время асинхронной операции
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            return msgs[0];  // Возвращаем сообщения
         }
 
         @Override
@@ -263,7 +237,7 @@ public class ChatActivity extends AppCompatActivity {
             sendBtn.setVisibility(View.VISIBLE);
             progressBar.setVisibility(View.GONE);
 
-            adapter = new ChatThreadsRecyclerViewAdapter(msgs);
+            ChatThreadsRecyclerViewAdapter adapter = new ChatThreadsRecyclerViewAdapter(msgs);
             adapter.notifyDataSetChanged();
             listOfMessages.setAdapter(adapter);
         }
@@ -279,25 +253,11 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
 
-    private class GetUserInfo extends AsyncTask<String, Void, User> {
-        @Override
-        protected User doInBackground(String... strings) {
-        	while(myService == null){
-				try {
-					Thread.sleep(2000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-            return myService.getUserByUID(strings[0]);
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (isBound) {
+            unbindService(serviceConnection);
         }
     }
-	
-	@Override
-	protected void onStop() {
-		super.onStop();
-		if (isBound) {
-			unbindService(serviceConnection);
-		}
-	}
 }

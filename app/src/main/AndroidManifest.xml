@@ -9,6 +9,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+
 
     <application
         android:allowBackup="true"
@@ -32,12 +37,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Other activities -->
         <activity android:name="com.example.DatingApp.MainAppActivity"
             android:screenOrientation="portrait" />
         <activity android:name="com.example.DatingApp.ChatActivity"
             android:screenOrientation="portrait" />
         <activity android:name="com.example.DatingApp.OwnProfileActivity"
-             android:screenOrientation="portrait" />
+            android:screenOrientation="portrait" />
         <activity android:name="com.example.DatingApp.ProfileActivity"
             android:screenOrientation="portrait" />
         <activity android:name="com.example.DatingApp.ProfileEditorActivity"
@@ -63,6 +69,12 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="@string/default_notification_channel_id" />
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBQELMJ3PskECtTx7njthXey8uJQ09Sm1k" />
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
 
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"

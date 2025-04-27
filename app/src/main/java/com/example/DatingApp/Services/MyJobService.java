@@ -25,6 +25,6 @@ class MyWorker extends Worker {
         return Result.success();
 
         // Если произошла ошибка
-        // return Result.failure();
+
     }
 }

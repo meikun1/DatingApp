@@ -34,52 +34,54 @@ public class OnlineRecyclerViewAdapterBig extends RecyclerView.Adapter<OnlineRec
     }
 
     @Override
-    public OnlineRecyclerViewAdapterBig.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+    public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.card_view_big, parent, false);
-        OnlineRecyclerViewAdapterBig.ViewHolder holder = new OnlineRecyclerViewAdapterBig.ViewHolder(view);
-        return holder;
+        return new ViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(OnlineRecyclerViewAdapterBig.ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
+    public void onBindViewHolder(ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
         Log.d(TAG, "onBindViewHolder: called.");
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if(position == 0) {
-            holder.cardView.setRadius(17);
-	        holder.cardView.setBackground(null);
-            holder.userName.setText(currentUser.getDisplayName());
-            holder.distance.setText(users.get(position).getDistance());
-        }else{
-            holder.cardView.setBackgroundResource(R.drawable.ic_launcher_background);
-            holder.userName.setText(users.get(position).getName());
-            holder.distance.setText(users.get(position).getDistance());
-        }
 
-        holder.parentLayout.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.d(TAG, "onClick: clicked on: ");
-                Intent intent;
-                if(position == 0){
-                    intent = new Intent(mContext, OwnProfileActivity.class);
-                    mContext.startActivity(intent);
-                }else {
-                    intent = new Intent(mContext, ProfileActivity.class);
-                    Bundle bundle = new Bundle();
-                    bundle.putString("uid", users.get(position).getUid());
-                    intent.putExtras(bundle);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        if (currentUser != null) {
+            if (position == 0) {
+                holder.cardView.setRadius(17);
+                holder.cardView.setBackground(null);
+                holder.userName.setText(currentUser.getDisplayName());
+                holder.distance.setText(users.get(position).getDistance());
+            } else {
+                holder.cardView.setBackgroundResource(R.drawable.ic_launcher_background);
+                holder.userName.setText(users.get(position).getName());
+                holder.distance.setText(users.get(position).getDistance());
+            }
+
+            holder.parentLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Log.d(TAG, "onClick: clicked on: ");
+                    Intent intent;
+                    if (position == 0) {
+                        intent = new Intent(mContext, OwnProfileActivity.class);
+                    } else {
+                        intent = new Intent(mContext, ProfileActivity.class);
+                        Bundle bundle = new Bundle();
+                        bundle.putString("uid", users.get(position).getUid());
+                        intent.putExtras(bundle);
+                    }
                     mContext.startActivity(intent);
                 }
-            }
-        });
+            });
+        }
     }
 
     @Override
     public int getItemCount() {
-        return users.size();
+        return users != null ? users.size() : 0;
     }
 
-    public class ViewHolder extends RecyclerView.ViewHolder{
+    public class ViewHolder extends RecyclerView.ViewHolder {
 
         TextView userName;
         TextView distance;

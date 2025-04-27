@@ -1,15 +1,9 @@
 package com.example.DatingApp;
 
 import android.annotation.SuppressLint;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
-import android.content.SharedPreferences;
-import android.os.AsyncTask;
-import android.os.IBinder;
-import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
@@ -17,49 +11,66 @@ import android.widget.EditText;
 import android.widget.NumberPicker;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
+import android.widget.Button;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import com.example.DatingApp.Services.MyDBService;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.example.DatingApp.Users.UserInfo;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentReference;
 
-import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class ProfileEditorActivity extends AppCompatActivity{
-    private String user;
-    private int image, height, weight;
-    private String about, birthDate, ethnicity, relationship, religion, orientation, reference, stdS, role, firestore;
+public class ProfileEditorActivity extends AppCompatActivity {
+
+    private String userId;
     private EditText txtAbout;
     private NumberPicker pkrDay, pkrMonth, pkrYear, pkrHeight, pkrWeight;
     private Spinner spnrEthnicity, spnrReligion, spnrRelationship, spnrOrientation, spnrReference, spnrSTDs, spnrRole;
     private ArrayAdapter<CharSequence> arrayAdapter;
-    private SharedPreferences sharedPreferences;
-    private String userId;
     private ProgressBar progressBar;
 
-    private MyDBService myService;
-    private Boolean isBound;
-    private ServiceConnection serviceConnection;
+    private FirebaseFirestore db;
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @SuppressLint("WrongViewCast")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile_editor);
-        serviceConnection = new ServiceConnection() {
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder service) {
-                isBound = true;
-                MyDBService.MyLocalBinder binder = (MyDBService.MyLocalBinder) service;
-                myService = binder.getService();
-            }
 
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                isBound = false;
-            }
-        };
-        Intent intent = new Intent(ProfileEditorActivity.this, MyDBService.class);
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        // Получение UID авторизованного пользователя
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        } else {
+            Log.e("ProfileEditor", "FirebaseAuth.getCurrentUser() вернул null!");
+            userId = null;
+        }
 
+        // Инициализация Firebase
+        db = FirebaseFirestore.getInstance();
+
+        // Инициализация UI
+        initializeUI();
+
+        FloatingActionButton btnChat = findViewById(R.id.btnChat);
+
+        btnChat.setOnClickListener(view -> {
+            // Проверка и обновление данных перед переходом в MainAppActivity
+            editProfileAndNavigateToMainApp();
+        });
+
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+
+        // Настройка NumberPickers и Spinners
+        setupNumberPickers();
+        setupSpinners();
+    }
+
+    private void initializeUI() {
         txtAbout = findViewById(R.id.about);
         pkrDay = findViewById(R.id.day);
         pkrMonth = findViewById(R.id.month);
@@ -74,11 +85,9 @@ public class ProfileEditorActivity extends AppCompatActivity{
         spnrSTDs = findViewById(R.id.stdss);
         spnrRole = findViewById(R.id.role);
         progressBar = findViewById(R.id.progressBarInfo);
+    }
 
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
-
-        new SetValuesTask().execute();
-
+    private void setupNumberPickers() {
         pkrDay.setMinValue(1);
         pkrDay.setMaxValue(31);
         pkrMonth.setMinValue(1);
@@ -90,156 +99,102 @@ public class ProfileEditorActivity extends AppCompatActivity{
         pkrHeight.setMaxValue(230);
         pkrWeight.setMinValue(40);
         pkrWeight.setMaxValue(200);
+    }
 
-        //Ethnicity Spinner
+    private void setupSpinners() {
         arrayAdapter = ArrayAdapter.createFromResource(this, R.array.ethnicity, android.R.layout.simple_spinner_item);
         arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spnrEthnicity.setAdapter(arrayAdapter);
-	    
-        //Reference Spinner
-        arrayAdapter = ArrayAdapter.createFromResource(this, R.array.reference, android.R.layout.simple_spinner_item);
-        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spnrReference.setAdapter(arrayAdapter);
-	
-	    //Religion Spinner
-        arrayAdapter = ArrayAdapter.createFromResource(this, R.array.religion, android.R.layout.simple_spinner_item);
-        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spnrReligion.setAdapter(arrayAdapter);
-	
-	    //Relationship Spinner
-        arrayAdapter = ArrayAdapter.createFromResource(this, R.array.relationship, android.R.layout.simple_spinner_item);
-        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spnrRelationship.setAdapter(arrayAdapter);
-	
-	    //Orientation Spinner
-        arrayAdapter = ArrayAdapter.createFromResource(this, R.array.orientation, android.R.layout.simple_spinner_item);
-        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spnrOrientation.setAdapter(arrayAdapter);
-	
-	    //STDs Spinner
-        arrayAdapter = ArrayAdapter.createFromResource(this, R.array.stds, android.R.layout.simple_spinner_item);
-        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spnrSTDs.setAdapter(arrayAdapter);
 
-        //Role Spinner
-        arrayAdapter = ArrayAdapter.createFromResource(this, R.array.role, android.R.layout.simple_spinner_item);
-        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spnrRole.setAdapter(arrayAdapter);
+        setupSpinner(spnrReference, R.array.reference);
+        setupSpinner(spnrReligion, R.array.religion);
+        setupSpinner(spnrRelationship, R.array.relationship);
+        setupSpinner(spnrOrientation, R.array.orientation);
+        setupSpinner(spnrSTDs, R.array.stds);
+        setupSpinner(spnrRole, R.array.role);
     }
 
+    private void setupSpinner(Spinner spinner, int arrayResourceId) {
+        arrayAdapter = ArrayAdapter.createFromResource(this, arrayResourceId, android.R.layout.simple_spinner_item);
+        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(arrayAdapter);
+    }
+
+    public void editProfileAndNavigateToMainApp() {
+        if (userId == null || userId.isEmpty()) {
+            Log.e("ProfileEditor", "User ID is null or empty. Cannot update profile.");
+            return;
+        }
+
+        try {
+            String about = txtAbout.getText().toString();
+            String birthDate = pkrDay.getValue() + "/" + pkrMonth.getValue() + "/" + pkrYear.getValue();
+            int height = pkrHeight.getValue();
+            int weight = pkrWeight.getValue();
+            String ethnicity = String.valueOf(spnrEthnicity.getSelectedItemPosition());
+            String relationship = String.valueOf(spnrRelationship.getSelectedItemPosition());
+            String religion = String.valueOf(spnrReligion.getSelectedItemPosition());
+            String reference = String.valueOf(spnrReference.getSelectedItemPosition());
+            String orientation = String.valueOf(spnrOrientation.getSelectedItemPosition());
+            String stdS = String.valueOf(spnrSTDs.getSelectedItemPosition());
+            String role = String.valueOf(spnrRole.getSelectedItemPosition());
+
+            UserInfo userInfo = new UserInfo(
+                    userId,
+                    about,
+                    birthDate,
+                    height,
+                    weight,
+                    relationship,
+                    religion,
+                    orientation,
+                    role,
+                    ethnicity,
+                    reference,
+                    stdS);
+
+            updateProfileAndNavigate(userInfo);
+        } catch (Exception e) {
+            Log.e("ProfileEditor", "Error in editProfileAndNavigateToMainApp", e);
+        }
+    }
+
+ private void updateProfileAndNavigate(UserInfo userInfo) {
+     executor.execute(() -> {
+         if (userInfo != null) {
+             try {
+                 // Сохраняем данные в Firestore
+                 DocumentReference userRef = db.collection("users").document(userInfo.getUserId());
+
+                 userRef.set(userInfo)
+                     .addOnSuccessListener(aVoid -> {
+                         // После успешного обновления профиля, переходим в MainAppActivity
+                         runOnUiThread(() -> {
+                             Intent intent = new Intent(ProfileEditorActivity.this, MainAppActivity.class);
+                             startActivity(intent);
+                             finish(); // Закрываем текущую активность
+                         });
+                     })
+                     .addOnFailureListener(e -> {
+                         Log.e("ProfileEditor", "Error updating profile in Firestore", e);
+                     });
+             } catch (Exception e) {
+                 Log.e("ProfileEditor", "Error updating profile", e);
+             }
+         }
+     });
+  }
+
+  @Override
+  protected void onStop() {
+      super.onStop();
+  }
+
+  @Override
+  protected void onDestroy() {
+      super.onDestroy();
+  }
 
     public void editProfile(View view) {
-        about = txtAbout.getText().toString();
-        birthDate = pkrDay.getValue() + "/" + pkrMonth.getValue() + "/" + pkrYear.getValue();
-        height = pkrHeight.getValue();
-        weight = pkrWeight.getValue();
-        ethnicity = String.valueOf(spnrEthnicity.getSelectedItemPosition());
-        relationship = String.valueOf(spnrRelationship.getSelectedItemPosition());
-        religion = String.valueOf(spnrReligion.getSelectedItemPosition());
-        reference = String.valueOf(spnrReference.getSelectedItemPosition());
-        orientation = String.valueOf(spnrOrientation.getSelectedItemPosition());
-        stdS = String.valueOf(spnrSTDs.getSelectedItemPosition());
-        role = String.valueOf(spnrRole.getSelectedItemPosition());
-
-        UserInfo userInfo = new UserInfo(
-		        userId,
-                about,
-                birthDate,
-                height,
-                weight,
-                relationship,
-                religion,
-                orientation,
-                role,
-                ethnicity,
-                reference,
-                stdS);
-        new EditProfileTask().execute(userInfo);
-    }
-
-    private class EditProfileTask extends AsyncTask<UserInfo, Void, Boolean> {
-
-        @Override
-        protected Boolean doInBackground(UserInfo... userInfos) {
-            if(userInfos == null || userInfos.length != 1)
-                return null;
-            
-            while(myService == null){
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            myService.updateInfoFieldInUsersTokens(userInfos[0]);
-
-	        return null;
-        }
-    }
-
-    private class SetValuesTask extends AsyncTask<Void, Void, Map<Object, Object>>{
-
-        @Override
-        protected void onPreExecute() {
-            progressBar.setVisibility(View.VISIBLE);
-        }
-
-        @Override
-        protected Map<Object, Object> doInBackground(Void... voids) {
-            while(myService == null){
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            Map<Object, Object> map = null;
-            if( myService.getCurrentUser().getInfo() != null){
-                map =  myService.getCurrentUser().getInfo().mapOfUserInfo();
-            }
-            return map;
-        }
-
-        @Override
-        protected void onPostExecute(Map<Object, Object> map) {
-
-            if(map != null) {
-                String[] split = ((String) map.get("birthdate")).split("/");
-
-                txtAbout.setText((String) map.get("about"));
-                pkrHeight.setValue((int) map.get("height"));
-                pkrWeight.setValue((int) map.get("weight"));
-
-                pkrDay.setValue(Integer.valueOf(split[0]));
-                pkrMonth.setValue(Integer.valueOf(split[1]));
-                pkrYear.setValue(Integer.valueOf(split[2]));
-
-                spnrEthnicity.setSelection(Integer.valueOf((String) map.get("ethnicity")));
-                spnrRelationship.setSelection(Integer.valueOf((String) map.get("relationship")));
-                spnrReference.setSelection(Integer.valueOf((String) map.get("reference")));
-                spnrReligion.setSelection(Integer.valueOf((String) map.get("religion")));
-                spnrOrientation.setSelection(Integer.valueOf((String) map.get("orientation")));
-                spnrSTDs.setSelection(Integer.valueOf((String) map.get("STDs")));
-                spnrRole.setSelection(Integer.valueOf((String) map.get("role")));
-            }
-            progressBar.setVisibility(View.GONE);
-        }
-    }
-    
-    @Override
-    protected void onStop() {
-        super.onStop();
-        if (isBound) {
-            unbindService(serviceConnection);
-        }
-    }
-    
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (isBound) {
-            unbindService(serviceConnection);
-        }
     }
 }

@@ -52,23 +52,23 @@ public class ProfileActivity extends AppCompatActivity {
     private String uid;
     private User currentUser;
     private MyUser myCurrentUser;
-    
+
     @Override
     protected void onStop() {
         super.onStop();
         if (isBound) {
-//            unbindService(serviceConnection);
+            //unbindService(serviceConnection);
         }
     }
-    
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (isBound) {
-//            unbindService(serviceConnection);
+            //unbindService(serviceConnection);
         }
     }
-    
+
     @Override
     protected void onPause() {
         super.onPause();
@@ -76,31 +76,33 @@ public class ProfileActivity extends AppCompatActivity {
             unbindService(serviceConnection);
         }
     }
-    
+
     @Override
     protected void onResume() {
         super.onResume();
         Intent intent = new Intent(this, MyDBService.class);
         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
     }
-    
+
     @Override
     protected void onStart() {
         super.onStart();
         Intent intent = new Intent(this, MyDBService.class);
         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
     }
-    
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile);
+
         serviceConnection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
-                MyDBService.MyLocalBinder binder = (MyDBService.MyLocalBinder)service;
+                MyDBService.MyLocalBinder binder = (MyDBService.MyLocalBinder) service;
                 myService = binder.getService();
                 isBound = true;
+                loadUserData(); // Загрузка данных после подключения
             }
 
             @Override
@@ -108,42 +110,38 @@ public class ProfileActivity extends AppCompatActivity {
                 isBound = false;
             }
         };
-        
 
         Bundle bundle = getIntent().getExtras();
         uid = bundle.getString("uid");
 
-        getList();
+        // Инициализация других компонентов
         SlidrConfig config = new SlidrConfig.Builder()
                 .sensitivity(999999999).velocityThreshold(0)
                 .listener(new SlidrListener() {
                     @Override
                     public void onSlideStateChanged(int state) {
                         Log.d(TAG, "onSlideStateChanged: started.");
-
                     }
 
                     @Override
                     public void onSlideChange(float percent) {
                         Log.d(TAG, "onSlideChange: started.");
-
                     }
 
                     @Override
                     public void onSlideOpened() {
                         Log.d(TAG, "onSlideOpened: started.");
-
                     }
 
                     @Override
                     public void onSlideClosed() {
                         Log.d(TAG, "onSlideClosed: started.");
-
                     }
                 })
                 .build();
         Slidr.attach(this, config);
 
+        // Инициализация UI элементов
         drawerLayout = findViewById(R.id.drawerLayout);
         linearLayout = findViewById(R.id.drawer);
         txtAbout = findViewById(R.id.aboutP);
@@ -158,106 +156,46 @@ public class ProfileActivity extends AppCompatActivity {
         txtNameAge = findViewById(R.id.nameAge);
         openChatBtn = findViewById(R.id.btnChat);
         infoMenu = findViewById(R.id.infoMenu);
-        
-        new SetContentValues().execute();
+
+        // Начальная загрузка данных
+        loadUserData();
     }
 
-    private void getList() {
-
-        initViewPagerAdapter();
-    }
-
-    private void initViewPagerAdapter() {
-        Log.d(TAG, "initViewPagerAdapter: started.");
-
-        viewPager = findViewById(R.id.viewPager);
-        viewPagerAdapter = new ViewPagerAdapter(getSupportFragmentManager());
-        viewPager.setAdapter(viewPagerAdapter);
-    }
-
-
-    public void showHide(View view) {
-        if(drawerLayout.isDrawerOpen(linearLayout)){
-            drawerLayout.closeDrawers();
-        }else{
-            drawerLayout.openDrawer(linearLayout);
-        }
-    }
-
-    public void openChat(View view) {
-        Intent intent = new Intent(this, ChatActivity.class);
-        Bundle bundle = new Bundle();
-        bundle.putSerializable("other_user", myCurrentUser);
-        intent.putExtras(bundle);
-        startActivity(intent);
-    }
-    
-    public void addToFavs(View view) {
-        new AddToFavs().execute();
-    }
-    
-    private class SetContentValues extends AsyncTask<Void, Void, User>{
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            openChatBtn.setEnabled(false);
-        }
-    
-        @Override
-        protected User doInBackground(Void... voids) {
-            while(myService == null){
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+    private void loadUserData() {
+        myService.getUserByUID(uid, new MyDBService.OnUserLoadedListener() {
+            @Override
+            public void onUserLoaded(User user) {
+                currentUser = user;
+                myCurrentUser = new MyUser(user);
+                openChatBtn.setEnabled(true);
+                UserInfo userInfo = user.getInfo();
+                if (userInfo != null) {
+                    infoMenu.setVisibility(View.VISIBLE);
+                    int userAge = getAgeFromYear(userInfo.getBirthDate());
+                    txtNameAge.setText(user.getName() + ", " + userAge);
+                    txtAbout.setText(String.valueOf(userInfo.getAbout()));
+                    txtHeight.setText(String.valueOf(userInfo.getHeight()));
+                    txtWeight.setText(String.valueOf(userInfo.getWeight()));
+                    txtEthnicity.setText(getResources().getStringArray(R.array.ethnicity)[Integer.valueOf(userInfo.getEthnicity())]);
+                    txtReference.setText(getResources().getStringArray(R.array.reference)[Integer.valueOf(userInfo.getReference())]);
+                    txtRelationship.setText(getResources().getStringArray(R.array.relationship)[Integer.valueOf(userInfo.getRelationship())]);
+                    txtReligion.setText(getResources().getStringArray(R.array.religion)[Integer.valueOf(userInfo.getReligion())]);
+                    txtOrientation.setText(getResources().getStringArray(R.array.orientation)[Integer.valueOf(userInfo.getOrientation())]);
+                    txtRole.setText(getResources().getStringArray(R.array.role)[Integer.valueOf(userInfo.getRole())]);
+                } else {
+                    txtNameAge.setText(user.getName());
+                    infoMenu.setVisibility(View.GONE);
                 }
             }
-            return myService.getUserByUID(uid);
-        }
 
-        @Override
-        protected void onPostExecute(User user) {
-            currentUser = user;
-            myCurrentUser = new MyUser(user);
-            openChatBtn.setEnabled(true);
-            UserInfo userInfo = user.getInfo();
-            if (userInfo != null) {
-                infoMenu.setVisibility(View.VISIBLE);
-                int userAge = getAgeFromYear(userInfo.getBirthDate());
-                txtNameAge.setText(user.getName() + ", " + userAge);
-                txtAbout.setText(String.valueOf(userInfo.getAbout()));
-                txtHeight.setText(String.valueOf(userInfo.getHeight()));
-                txtWeight.setText(String.valueOf(userInfo.getWeight()));
-                txtEthnicity.setText(getResources().getStringArray(R.array.ethnicity)[(Integer.valueOf(userInfo.getEthnicity()))]);
-                txtReference.setText(getResources().getStringArray(R.array.reference)[(Integer.valueOf(userInfo.getReference()))]);
-                txtRelationship.setText(getResources().getStringArray(R.array.relationship)[(Integer.valueOf(userInfo.getRelationship()))]);
-                txtReligion.setText(getResources().getStringArray(R.array.religion)[(Integer.valueOf(userInfo.getReligion()))]);
-                txtOrientation.setText(getResources().getStringArray(R.array.orientation)[(Integer.valueOf(userInfo.getOrientation()))]);
-                txtRole.setText(getResources().getStringArray(R.array.role)[(Integer.valueOf(userInfo.getRole()))]);
-            }else{
-                txtNameAge.setText(user.getName());
-                infoMenu.setVisibility(View.GONE);
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Error loading user", e);
             }
-        }
-
-        private int getAgeFromYear(String birthDate) {
-            return Calendar.getInstance().get(Calendar.YEAR) - (Integer.valueOf(birthDate.split("/")[2]));
-        }
+        });
     }
-    
-    public class AddToFavs extends AsyncTask<Void, Void, Void>{
-    
-        @Override
-        protected Void doInBackground(Void... voids) {
-            while (myService == null){
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            myService.addFavourites(currentUser);
-            return null;
-        }
+
+    private int getAgeFromYear(String birthDate) {
+        return Calendar.getInstance().get(Calendar.YEAR) - Integer.valueOf(birthDate.split("/")[2]);
     }
 }

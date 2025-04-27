@@ -7,6 +7,12 @@ import android.os.Binder;
 import android.os.IBinder;
 import androidx.annotation.NonNull;
 import android.util.Log;
+import android.content.Context;
+
+
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentReference;
 
 import com.example.DatingApp.Chat.Message;
 import com.example.DatingApp.Chat.Room;
@@ -28,6 +34,11 @@ import java.util.Map;
 
 
 public class MyDBService extends Service {
+
+    private static final String PREFS_USER = "prefs_user";
+
+    private Context context;
+    private FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     public static final String USERS_TOKENS_DB = "users_tokens";
     public static final String USER_SP = "user";
@@ -64,8 +75,84 @@ public class MyDBService extends Service {
     private Object tsk;
     private List<User> favUsersList;
 
-    public MyDBService() {
+    public interface OnMessagesLoadedListener {
+        void onMessagesLoaded(List<Message> messages);
+        void onError(Exception e);
     }
+
+    public MyDBService() {
+        // ОБЯЗАТЕЛЬНО пустой конструктор
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        context = this; // Теперь контекст — это сам сервис
+        db = FirebaseFirestore.getInstance(); // И сразу инициализация Firestore
+    }
+
+
+    public void getUserByUID(String uid, final MyDBService.OnUserLoadedListener listener) {
+        if (uid == null || uid.isEmpty()) {
+            listener.onError(new IllegalArgumentException("UID is null or empty"));
+            return;
+        }
+
+        // Запрос на получение документа
+        db.collection("users")
+                .document(uid)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        User user = documentSnapshot.toObject(User.class);
+                        if (user != null) {
+                            listener.onUserLoaded(user);
+                        } else {
+                            listener.onError(new Exception("Failed to parse user from document"));
+                        }
+                    } else {
+                        listener.onError(new Exception("User document does not exist"));
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    listener.onError(e);
+                });
+    }
+
+    public void addMessageToRoom(String roomId, Message message) {
+        // Получаем ссылку на коллекцию сообщений в комнате
+        CollectionReference messagesRef = db.collection(ROOMS_DB).document(roomId).collection(MESSAGES_DB);
+
+        // Добавляем сообщение в Firestore
+        messagesRef.add(message)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "Message added to room: " + documentReference.getId());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error adding message to room", e);
+                });
+    }
+    public String addNewRoomAndMessage(String docID, String userUID, Message message) {
+        // Создаём новую комнату
+        DocumentReference roomRef = db.collection(ROOMS_DB).document(docID);
+
+        // Создаем коллекцию сообщений внутри комнаты
+        CollectionReference messagesRef = roomRef.collection(MESSAGES_DB);
+
+        // Добавляем сообщение в коллекцию
+        messagesRef.add(message)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "Message added to new room: " + documentReference.getId());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error adding message to new room", e);
+                });
+
+        return docID; // Возвращаем ID комнаты
+    }
+
+    // Прочие методы для работы с пользователями, чатами и т.д.
+
 
     private static int distance(double lat1, double lon1, double lat2, double lon2, String unit) {
         if ((lat1 == lat2) && (lon1 == lon2)) {
@@ -96,26 +183,60 @@ public class MyDBService extends Service {
 
         return super.onStartCommand(intent, flags, startId);
     }
+    // Пример метода для получения пользователей для всех комнат
+    public void getUsersFromRooms(List<Room> rooms, final OnUsersLoadedListener listener) {
+        // Проверка на null, чтобы избежать ошибок
+        if (rooms == null || rooms.isEmpty()) {
+            listener.onError(new Exception("No rooms found"));
+            return;
+        }
+
+        // Создаем список пользователей
+        List<User> users = new ArrayList<>();
+
+        // Пример асинхронной загрузки пользователей (здесь может быть запрос к базе данных)
+        // Имитация загрузки данных (замените этот код на ваш способ получения пользователей)
+        for (Room room : rooms) {
+            // Предполагаем, что у каждой комнаты есть информация о пользователе
+            User user = new User();  // Замените на реальную логику для получения пользователей
+            user.setName("User for room " + room.getRoomUID());  // Например, генерируем имя пользователя
+            users.add(user);
+        }
+
+        // После завершения загрузки данных, вызываем listener для передачи данных
+        listener.onUsersLoaded(users);  // Вызываем метод, передавая список пользователей
+    }
 
     private void getFirestoreDocumentID() {
-        firestore = sp.getString(FIRESTORE_UID_SP, null);
-        if (firestore == null) {
-            FirebaseFirestore.getInstance()
-                    .collection(USERS_TOKENS_DB)
-                    .whereEqualTo(UID_DB, currentFirebaseUser.getUid()).get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                @Override
-                public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                    if (task.getResult() != null && task.getResult().getDocuments().size() > 0) {
-                        firestore = task.getResult().getDocuments().get(0).getId();
-                        getCurrentUser(true);
-                    }
-                }
-            });
-            userState = NEW_DEVICE;
+        SharedPreferences sp = context.getSharedPreferences(PREFS_USER, Context.MODE_PRIVATE);
+        String firestoreId = sp.getString(FIRESTORE_UID_SP, null);
+
+        if (firestoreId == null) {
+            if (currentFirebaseUser != null) {
+                FirebaseFirestore.getInstance()
+                        .collection(USERS_TOKENS_DB)
+                        .whereEqualTo(UID_DB, currentFirebaseUser.getUid())
+                        .get()
+                        .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                            @Override
+                            public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                                if (task.getResult() != null && task.getResult().getDocuments().size() > 0) {
+                                    firestore = task.getResult().getDocuments().get(0).getId();
+                                    getCurrentUser(true);
+                                }
+                            }
+                        });
+                userState = NEW_DEVICE;
+            } else {
+                // Обработай ситуацию, когда currentFirebaseUser == null
+                Log.e("MyDBService", "Firebase user is null.");
+            }
         } else {
+            firestore = firestoreId;
             getCurrentUser(true);
         }
     }
+
 
     public List<Room> getAllRooms() {
         gotAllRooms = false;
@@ -125,7 +246,7 @@ public class MyDBService extends Service {
                 getAllRoomsAndMessages(getCurrentUser());
             }
         }).start();
-        while(!gotAllRooms){
+        while (!gotAllRooms) {
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
@@ -136,95 +257,23 @@ public class MyDBService extends Service {
         return rooms;
     }
 
-    public Room getRoom(String roomUID){
-        gotRoom = false;
-        tsk = FirebaseFirestore.getInstance()
-                .collection(ROOMS_DB)
-                .document(roomUID)
-                .get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                        if (task.isSuccessful()) {
-                            room = task.getResult().toObject(Room.class);
-                            String roomID = task.getResult().getId();
-                            room.setRoomUID(roomID);
-                            gotRoom = true;
-                        } else {
-                            //TODO
-                        }
-                    }
-                });
-        while (!gotRoom){
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        return room;
-    }
-    
-    public List<User> getUsersFromRooms(List<Room> roomsList){
-
-        int length = roomsList.toArray().length;
-        List<String> uidsList = new ArrayList<>();
-        List<User> usersList = new ArrayList<>();
-        if (length > 1) {
-            Log.d(TAG, "getUsersFromRooms: before first for");
-            for (Room rm : roomsList) {
-
-                Log.d(TAG, "getUsersFromRooms: in first for");
-                if (!rm.getTofrom().get(0).equals(uid)){
-                    uidsList.add(rm.getTofrom().get(0));
-                }else{
-                    uidsList.add(rm.getTofrom().get(1));
-                }
-            }
-            Log.d(TAG, "getUsersFromRooms: before second for");
-            for (int i = 0; i < uidsList.size(); i++) {
-
-                Log.d(TAG, "getUsersFromRooms: in first for");
-                usersList.add(getUserByUID(uidsList.get(i)));
-            }
-        }else{
-            Log.d(TAG, "else if");
-            if (!roomsList.get(0).getTofrom().get(0).equals(uid)){
-                uidsList.add(roomsList.get(0).getTofrom().get(0));
-            }else{
-                uidsList.add(roomsList.get(0).getTofrom().get(1));
-            }
-
-            usersList.add(getUserByUID(uidsList.get(0)));
-            Log.d(TAG, "getUsersFromRooms: "+ usersList.toArray().toString());
-        }
-
-        return usersList;
-    }
-
-    public String getFirestoreDocumentID(String uId) {
-        otherFirestore = null;
+    public void getRoom(String roomUID, RoomCallback callback) {
         FirebaseFirestore.getInstance()
-                .collection(USERS_TOKENS_DB)
-                .whereEqualTo(UID_DB, uId)
+                .collection("rooms")
+                .document(roomUID)
                 .get()
-                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                        if (task.getResult() != null && task.getResult().getDocuments().size() > 0) {
-                            otherFirestore = task.getResult().getDocuments().get(0).getId();
-                            getCurrentUser(true);
-                        }
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Room room = task.getResult().toObject(Room.class);
+                        callback.onRoomLoaded(room);  // Вызываем коллбек с загруженной комнатой
+                    } else {
+                        callback.onError(task.getException());  // Вызываем коллбек с ошибкой
                     }
                 });
-        while (otherFirestore == null) {
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        return otherFirestore;
     }
+
+
+    // Интерфейс для обработки результата
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -258,12 +307,21 @@ public class MyDBService extends Service {
                 });
     }
 
+
     public void updateInfoFieldInUsersTokens(UserInfo userInfo) {
+        if (userInfo == null || userInfo.getUserId() == null) {
+            Log.e("MyDBService", "userInfo или userId равен null");
+            return;
+        }
+
         FirebaseFirestore.getInstance()
                 .collection(USERS_TOKENS_DB)
-                .document(firestore)
-                .update(INFO_DB, userInfo);
+                .document(userInfo.getUserId()) // Используем UID пользователя
+                .update(INFO_DB, userInfo)
+                .addOnSuccessListener(aVoid -> Log.d("MyDBService", "User info updated"))
+                .addOnFailureListener(e -> Log.e("MyDBService", "Failed to update user info", e));
     }
+
 
     public void updateFieldInUsersTokens(final Map<String, Object> map) {
         getFirestoreDocumentID();
@@ -307,29 +365,46 @@ public class MyDBService extends Service {
         return nearbyUsers;
     }
 
-    public User getUserByUID(String uid) {
-        otherUser = null;
-        FirebaseFirestore.getInstance()
-                .collection(USERS_TOKENS_DB)
-                .whereEqualTo(UID_DB, uid)
-                .get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-            @Override
-            public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                if (task.getResult() != null) {
-                    otherUser = task.getResult().getDocuments().get(0).toObject(User.class);
-                    otherUser.setDocID(task.getResult().getDocuments().get(0).getId());
+    public interface OnUserLoadedListener {
+        void onUserLoaded(User user);
+        void onError(Exception e);
+    }
+
+    public interface OnUsersLoadedListener {
+        void onUsersLoaded(List<User> users);
+        void onError(Exception e);
+    }
+
+    public List<Room> getAllRoomsAndMessages() {
+        List<Room> rooms = new ArrayList<>();
+
+        try {
+            // Здесь мы используем текущие методы вашего сервиса для получения данных о комнатах
+            rooms = getAllRooms();  // Предположим, что этот метод существует и возвращает список комнат
+
+            if (rooms != null) {
+                // Перебираем комнаты и загружаем сообщения
+                for (Room room : rooms) {
+                    if (room != null && room.getMessages() == null) {
+                        room.setMessages(new ArrayList<>());  // Создаем пустой список сообщений, если их нет
+                    }
                 }
             }
-        });
-        while (otherUser == null) {
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading rooms and messages", e);
         }
-        return otherUser;
+
+        return rooms;
     }
+
+
+
+    // Интерфейс для обработки результата
+
+
+
+
 
     public List<User> refreshNearbyUsers() {
         //TODO
@@ -402,40 +477,6 @@ public class MyDBService extends Service {
                 .document(roomUID)
                 .update(MESSAGES_DB, roomMsgs);
     }
-
-    public String addNewRoomAndMessage(final String firestoreUID, String otherUserUID, Message msg) {
-        room = new Room();
-        room.setTofrom(Arrays.asList(otherUserUID, uid));
-        room.addMessage(msg);
-
-        Task<DocumentReference> task = FirebaseFirestore.getInstance()
-                .collection(ROOMS_DB)
-                .add(room).addOnCompleteListener(new OnCompleteListener<DocumentReference>() {
-            @Override
-            public void onComplete(@NonNull Task<DocumentReference> task) {
-                room.setRoomUID(task.getResult().getId());
-                FirebaseFirestore.getInstance()
-                        .collection(USERS_TOKENS_DB)
-                        .document(firestoreUID)
-                        .update(MESSAGES_DB, Arrays.asList(room.getRoomUID()));
-                FirebaseFirestore.getInstance()
-                        .collection(USERS_TOKENS_DB)
-                        .document(firestore)
-                        .update(MESSAGES_DB, Arrays.asList(room.getRoomUID()));
-            }
-        });
-
-        while (!task.isComplete()){
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        currentUser.addRoom(room.getRoomUID());
-        return room.getRoomUID();
-    }
-    
     public void addFavourites(User favUser){
         List<String> favs = currentUser.getFavs();
         if (favs == null){
@@ -603,6 +644,9 @@ public class MyDBService extends Service {
 
     }
 
+    private SharedPreferences getPreferences() {
+        return context.getSharedPreferences(PREFS_USER, Context.MODE_PRIVATE);
+    }
     public class MyLocalBinder extends Binder {
         public MyDBService getService() {
             return MyDBService.this;

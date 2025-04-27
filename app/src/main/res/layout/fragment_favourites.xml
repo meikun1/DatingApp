@@ -9,7 +9,6 @@
 
     <!-- RecyclerView with AndroidX support -->
     <androidx.recyclerview.widget.RecyclerView
-        android:animateLayoutChanges="true"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/recycler_view"
