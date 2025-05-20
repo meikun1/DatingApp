@@ -52,10 +52,16 @@ public class MessagesFragment extends Fragment {
 		Bundle bundle = getArguments();
 		if (bundle != null) {
 			binder = (MyDBService.MyLocalBinder) bundle.getBinder("binder");
-			myService = binder.getService();
-			loadChatThreads();
+			if (binder != null) {
+				myService = binder.getService();
+				loadChatThreads();
+			} else {
+				Log.e(TAG, "Service binder is null");
+				showNoChats();
+			}
 		} else {
-			Log.e(TAG, "Service binder is null");
+			Log.e(TAG, "Bundle is null");
+			showNoChats();
 		}
 
 		return view;
@@ -64,39 +70,53 @@ public class MessagesFragment extends Fragment {
 	private void loadChatThreads() {
 		progressBar.setVisibility(View.VISIBLE);
 
-		if (myService != null) {
-			// Получаем список комнат из сервиса
-			roomsList = myService.getAllRooms();
-			if (roomsList == null || roomsList.isEmpty()) {
-				showNoChats();
-				return;
-			}
-
-			// Асинхронная загрузка пользователей для каждой комнаты
-			myService.getUsersFromRooms(roomsList, new MyDBService.OnUsersLoadedListener() {
-				@Override
-				public void onUsersLoaded(List<User> users) {
-					usersList = users;
-					progressBar.setVisibility(View.GONE);
-					if (usersList.isEmpty()) {
-						showNoChats();
-					} else {
-						initRecyclerView();
-					}
-				}
-
-				@Override
-				public void onError(Exception e) {
-					Log.e(TAG, "Failed to load users: " + e.getMessage());
-					progressBar.setVisibility(View.GONE);
-					showNoChats();
-				}
-			});
-		} else {
+		if (myService == null) {
 			Log.e(TAG, "MyService is null");
 			progressBar.setVisibility(View.GONE);
 			showNoChats();
+			return;
 		}
+
+		// Асинхронно загружаем список комнат
+		myService.getAllRoomsAsync(new MyDBService.OnRoomsLoadedListener() {
+			@Override
+			public void onRoomsLoaded(List<Room> rooms) {
+				roomsList = rooms != null ? rooms : new ArrayList<>();
+				if (roomsList.isEmpty()) {
+					progressBar.setVisibility(View.GONE);
+					showNoChats();
+					return;
+				}
+
+				// Загружаем пользователей для комнат
+				myService.getUsersFromRooms(roomsList, new MyDBService.NearbyUsersCallback() {
+					@Override
+					public void onNearbyUsersLoaded(List<User> users) {
+						usersList = users != null ? users : new ArrayList<>();
+						progressBar.setVisibility(View.GONE);
+						if (usersList.isEmpty()) {
+							showNoChats();
+						} else {
+							initRecyclerView();
+						}
+					}
+
+					@Override
+					public void onError(Exception e) {
+						Log.e(TAG, "Failed to load users: " + e.getMessage());
+						progressBar.setVisibility(View.GONE);
+						showNoChats();
+					}
+				});
+			}
+
+			@Override
+			public void onError(Exception e) {
+				Log.e(TAG, "Failed to load rooms: " + e.getMessage());
+				progressBar.setVisibility(View.GONE);
+				showNoChats();
+			}
+		});
 	}
 
 	private void showNoChats() {
@@ -121,8 +141,8 @@ public class MessagesFragment extends Fragment {
 		private List<User> users;
 
 		public RecyclerViewAdapter(List<Room> rooms, List<User> users) {
-			this.rooms = rooms;
-			this.users = users;
+			this.rooms = rooms != null ? rooms : new ArrayList<>();
+			this.users = users != null ? users : new ArrayList<>();
 		}
 
 		@NonNull
@@ -136,22 +156,31 @@ public class MessagesFragment extends Fragment {
 		public void onBindViewHolder(@NonNull final ViewHolder holder, final int position) {
 			Log.d(TAG, "onBindViewHolder: binding view at position " + position);
 
-			// Привязка данных к элементам списка
-			holder.nameLbl.setText(users.get(position).getName());
-			holder.image.setImageResource(R.drawable.ic_launcher_background);  // Поставить правильное изображение
+			if (position >= users.size() || position >= rooms.size()) {
+				Log.e(TAG, "Index out of bounds: position=" + position + ", users=" + users.size() + ", rooms=" + rooms.size());
+				return;
+			}
 
-			if (!rooms.get(position).getMessages().isEmpty()) {
-				holder.txtMessages.setText(rooms.get(position).getMessages().get(0).getContent());
+			User user = users.get(position);
+			Room room = rooms.get(position);
+
+			// Привязка данных к элементам списка
+			holder.nameLbl.setText(user.getName() != null ? user.getName() : "Unknown");
+			holder.image.setImageResource(R.drawable.ic_launcher_background); // Замените на реальное изображение
+
+			if (room.getMessages() != null && !room.getMessages().isEmpty()) {
+				holder.txtMessages.setText(room.getMessages().get(0).getContent());
 			} else {
 				holder.txtMessages.setText("");
 			}
 
 			// Обработка клика на элемент списка
 			holder.parentLayout.setOnClickListener(view -> {
-				Log.d(TAG, "onClick: clicked on: " + users.get(position).getName());
+				Log.d(TAG, "onClick: clicked on: " + user.getName());
 				Intent intent = new Intent(getContext(), ChatActivity.class);
 				Bundle bundle = new Bundle();
-				bundle.putSerializable("other_user", new MyUser(users.get(position)));  // Передаем данные пользователя
+				bundle.putSerializable("other_user", new MyUser(user));
+				bundle.putString("room", room.getRoomUID());
 				intent.putExtras(bundle);
 				startActivity(intent);
 			});
@@ -159,7 +188,7 @@ public class MessagesFragment extends Fragment {
 
 		@Override
 		public int getItemCount() {
-			return rooms.size();
+			return Math.min(rooms.size(), users.size());
 		}
 
 		public class ViewHolder extends RecyclerView.ViewHolder {

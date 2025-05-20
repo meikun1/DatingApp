@@ -7,31 +7,41 @@
     android:background="@color/design_default_color_primary_dark"
     tools:context=".OwnProfileActivity">
 
+    <!-- ViewPager2 -->
     <androidx.viewpager2.widget.ViewPager2
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id="@+id/viewPager" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/ic_settings_dark_35dp"
-        android:padding="15dp"
+        android:id="@+id/viewPager"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:id="@+id/btnChat"
-        android:layout_margin="20dp"
-        android:onClick="settings" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Settings FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnChat"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:src="@drawable/ic_edit_black_35dp"
-        android:padding="15dp"
-        app:layout_constraintBottom_toTopOf="@id/btnChat"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:id="@+id/btnInfo"
         android:layout_margin="20dp"
-        android:onClick="editProfile" />
+        android:padding="15dp"
+        android:src="@drawable/ic_settings_dark_35dp"
+        android:contentDescription="@string/settings"
+        android:onClick="settings"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Edit Profile FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="20dp"
+        android:padding="15dp"
+        android:src="@drawable/ic_edit_black_35dp"
+        android:contentDescription="@string/edit_profile"
+        android:onClick="editProfile"
+        app:layout_constraintBottom_toTopOf="@id/btnChat"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

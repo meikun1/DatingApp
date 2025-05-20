@@ -31,13 +31,25 @@ public class FavouritesViewModel extends AndroidViewModel {
     }
 
     public void loadUsersFromDB(List<String> favs) {
+        if (myService == null) return;
+
         if (favs != null && !favs.isEmpty()) {
-            List<User> userList = myService.getUsersByFIRE(favs);
-            users.setValue(userList);
+            myService.getUsersByFIREAsync(favs, new MyDBService.NearbyUsersCallback() {
+                @Override
+                public void onNearbyUsersLoaded(List<User> userList) {
+                    users.postValue(userList);
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    users.postValue(null);
+                }
+            });
         } else {
             users.setValue(null);
         }
     }
+
 
     public void setCurrentUser(User user) {
         currentUser.setValue(user);

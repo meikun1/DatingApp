@@ -16,7 +16,7 @@ import androidx.work.Data;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
-import com.example.DatingApp.MainActivity;
+import com.example.DatingApp.MainAppActivity;
 import com.example.DatingApp.R;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.messaging.FirebaseMessagingService;
@@ -25,16 +25,16 @@ import com.google.firebase.messaging.RemoteMessage;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.example.DatingApp.MainActivity.FIRESTORE_UID_SP;
-import static com.example.DatingApp.MainActivity.TOKEN_DB;
-import static com.example.DatingApp.MainActivity.UID_DB;
-import static com.example.DatingApp.MainActivity.USERS_TOKENS_DB;
-import static com.example.DatingApp.MainActivity.USER_SP;
-import static com.example.DatingApp.MainActivity.USER_UID_SP;
-
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "MyFirebaseMsgService";
+    // Определение констант
+    private static final String USER_SP = "user";
+    private static final String USER_UID_SP = "user_uid";
+    private static final String FIRESTORE_UID_SP = "firestore_uid_db";
+    private static final String TOKEN_DB = "token";
+    private static final String UID_DB = "uid";
+    private static final String USERS_TOKENS_DB = "users_tokens";
 
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
@@ -79,7 +79,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     private void sendNotification(RemoteMessage remoteMessage) {
-        Intent intent = new Intent(this, MainActivity.class);
+        Intent intent = new Intent(this, MainAppActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         PendingIntent pendingIntent = PendingIntent.getActivity(

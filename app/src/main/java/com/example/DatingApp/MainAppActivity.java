@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import androidx.annotation.NonNull;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -34,14 +35,23 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.GeoPoint;
 import java.util.List;
+import java.util.Random;
 
 
 public class MainAppActivity extends AppCompatActivity {
 
 	public static final String TAG = "MainApp";
 	public static final int REQUEST_CODE_LAST_LOCATION = 123;
+	private static final String[] TEST_EMAILS = {
+			"test1@mail.com", "test2@mail.com", "test3@mail.com", "test4@mail.com", "test5@mail.com",
+			"test6@mail.com", "test7@mail.com", "test8@mail.com", "test9@mail.com", "test10@mail.com"
+	};
+	private static final String TEST_PASSWORD = "qwertyuiop";
+	private static final long AUTH_RETRY_DELAY_MS = 3000; // Задержка 3 секунды
 
 	private Fragment selectedFragment;
 	private final Activity mainActivity = this;
@@ -56,11 +66,13 @@ public class MainAppActivity extends AppCompatActivity {
 	private ServiceConnection serviceConnection;
 	private ProgressBar progressBar;
 	private TextView progressLbl;
+	private FirebaseAuth mAuth;
+	private final Handler authHandler = new Handler();
 
 	private void switchFragment(Fragment fragment) {
 		getSupportFragmentManager().beginTransaction()
 				.replace(R.id.mainFrame, fragment)
-				.addToBackStack(null)  //
+				.addToBackStack(null)
 				.commit();
 	}
 
@@ -68,12 +80,10 @@ public class MainAppActivity extends AppCompatActivity {
 		@SuppressLint("NonConstantResourceId")
 		@Override
 		public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-
 			switch (item.getItemId()) {
 				case R.id.nav_home:
 					setTitle(R.string.online);
 					selectedFragment = new OnlineFragment();
-
 					if (!shouldStartLocationUpdates) {
 						startLocationUpdates();
 						shouldStartLocationUpdates = true;
@@ -83,7 +93,6 @@ public class MainAppActivity extends AppCompatActivity {
 				case R.id.nav_chat:
 					setTitle(R.string.messages);
 					selectedFragment = new MessagesFragment();
-
 					if (shouldStartLocationUpdates) {
 						stopLocationUpdates();
 						shouldStartLocationUpdates = false;
@@ -93,7 +102,6 @@ public class MainAppActivity extends AppCompatActivity {
 				case R.id.nav_favs:
 					setTitle(R.string.favourites);
 					selectedFragment = new FavouritesFragment();
-
 					if (shouldStartLocationUpdates) {
 						stopLocationUpdates();
 						shouldStartLocationUpdates = false;
@@ -103,9 +111,9 @@ public class MainAppActivity extends AppCompatActivity {
 
 			if (selectedFragment != null) {
 				Bundle bundle = new Bundle();
-				bundle.putBinder("binder", binder);  // Передача binder
+				bundle.putBinder("binder", binder);
 				selectedFragment.setArguments(bundle);
-				switchFragment(selectedFragment);  // Используем наш новый метод
+				switchFragment(selectedFragment);
 			}
 
 			return true;
@@ -117,6 +125,9 @@ public class MainAppActivity extends AppCompatActivity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main_app);
 
+		// Инициализация Firebase Auth
+		mAuth = FirebaseAuth.getInstance();
+
 		// Привязка к сервису
 		serviceConnection = new ServiceConnection() {
 			@Override
@@ -124,6 +135,8 @@ public class MainAppActivity extends AppCompatActivity {
 				binder = (MyDBService.MyLocalBinder) service;
 				myService = binder.getService();
 				isBound = true;
+				// Авторизуем тестового пользователя
+				authenticateTestUser(0);
 			}
 
 			@Override
@@ -147,13 +160,19 @@ public class MainAppActivity extends AppCompatActivity {
 					SharedPreferences sharedPreferences = getSharedPreferences("user", MODE_PRIVATE);
 					String id = sharedPreferences.getString("firestore_uid_db", null);
 					sharedPreferences.edit().putString("location", thisLocation.getLatitude() + "," + thisLocation.getLongitude()).apply();
+					// Обновляем местоположение в базе данных
+					if (isBound && myService != null && mAuth.getCurrentUser() != null) {
+						myService.updateLocationFieldInUsersTokens("latlng", new GeoPoint(location.getLatitude(), location.getLongitude()));
+						// Запускаем UpdateDBField только после авторизации и получения местоположения
+						new UpdateDBField().execute(thisLocation);
+					}
 				}
 				if (selectedFragment == null) {
 					selectedFragment = new OnlineFragment();
 					Bundle bundle = new Bundle();
 					bundle.putBinder("binder", binder);
 					selectedFragment.setArguments(bundle);
-					switchFragment(selectedFragment);  // Используем наш новый метод
+					switchFragment(selectedFragment);
 				}
 			}
 		};
@@ -165,6 +184,76 @@ public class MainAppActivity extends AppCompatActivity {
 
 		fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 		getLocation();
+	}
+
+	private void authenticateTestUser(int attempt) {
+		if (attempt >= TEST_EMAILS.length) {
+			Log.e(TAG, "All authentication attempts failed. Please check Firebase configuration, user credentials, and reCAPTCHA settings.");
+			return;
+		}
+
+		Random random = new Random();
+		String email = TEST_EMAILS[random.nextInt(TEST_EMAILS.length)];
+		Log.d(TAG, "Checking existence of: " + email);
+
+		// Проверяем существование пользователя
+		mAuth.fetchSignInMethodsForEmail(email).addOnCompleteListener(fetchTask -> {
+			if (fetchTask.isSuccessful()) {
+				List<String> signInMethods = fetchTask.getResult().getSignInMethods();
+				if (signInMethods != null && !signInMethods.isEmpty()) {
+					// Пользователь существует, пытаемся войти
+					Log.d(TAG, "User exists, attempting to sign in: " + email);
+					mAuth.signInWithEmailAndPassword(email, TEST_PASSWORD)
+							.addOnCompleteListener(this, signInTask -> {
+								if (signInTask.isSuccessful()) {
+									FirebaseUser user = mAuth.getCurrentUser();
+									if (user != null) {
+										SharedPreferences sharedPreferences = getSharedPreferences("user", MODE_PRIVATE);
+										sharedPreferences.edit().putString("firestore_uid_db", user.getUid()).apply();
+										Log.d(TAG, "Test user authenticated: " + email + ", UID: " + user.getUid());
+									} else {
+										Log.e(TAG, "FirebaseUser is null after successful sign-in for " + email);
+										if (!isFinishing()) {
+											authHandler.postDelayed(() -> authenticateTestUser(attempt + 1), AUTH_RETRY_DELAY_MS);
+										}
+									}
+								} else {
+									Log.e(TAG, "Authentication failed for " + email + ": " + signInTask.getException().getMessage());
+									if (!isFinishing()) {
+										authHandler.postDelayed(() -> authenticateTestUser(attempt + 1), AUTH_RETRY_DELAY_MS);
+									}
+								}
+							});
+				} else {
+					// Пользователь не существует, создаем нового
+					Log.d(TAG, "User does not exist, creating: " + email);
+					if (!isFinishing()) {
+						mAuth.createUserWithEmailAndPassword(email, TEST_PASSWORD)
+								.addOnCompleteListener(createTask -> {
+									if (createTask.isSuccessful()) {
+										FirebaseUser user = mAuth.getCurrentUser();
+										if (user != null) {
+											SharedPreferences sharedPreferences = getSharedPreferences("user", MODE_PRIVATE);
+											sharedPreferences.edit().putString("firestore_uid_db", user.getUid()).apply();
+											Log.d(TAG, "Test user created and authenticated: " + email + ", UID: " + user.getUid());
+										} else {
+											Log.e(TAG, "FirebaseUser is null after successful user creation for " + email);
+											authHandler.postDelayed(() -> authenticateTestUser(attempt + 1), AUTH_RETRY_DELAY_MS);
+										}
+									} else {
+										Log.e(TAG, "Failed to create user " + email + ": " + createTask.getException().getMessage());
+										authHandler.postDelayed(() -> authenticateTestUser(attempt + 1), AUTH_RETRY_DELAY_MS);
+									}
+								});
+					}
+				}
+			} else {
+				Log.e(TAG, "Failed to fetch sign-in methods for " + email + ": " + fetchTask.getException().getMessage());
+				if (!isFinishing()) {
+					authHandler.postDelayed(() -> authenticateTestUser(attempt + 1), AUTH_RETRY_DELAY_MS);
+				}
+			}
+		});
 	}
 
 	// Метод для получения местоположения
@@ -180,7 +269,6 @@ public class MainAppActivity extends AppCompatActivity {
 		} else {
 			createLocationRequest();
 			startLocationUpdates();
-			new UpdateDBField().execute(thisLocation);
 		}
 	}
 
@@ -223,6 +311,14 @@ public class MainAppActivity extends AppCompatActivity {
 	public void onDestroy() {
 		super.onDestroy();
 		stopLocationUpdates();
+		// Разлогинивание пользователя
+		mAuth.signOut();
+		// Очистка SharedPreferences
+		SharedPreferences sharedPreferences = getSharedPreferences("user", MODE_PRIVATE);
+		sharedPreferences.edit().remove("firestore_uid_db").apply();
+		// Очистка Handler
+		authHandler.removeCallbacksAndMessages(null);
+		Log.d(TAG, "User signed out");
 	}
 
 	@Override
@@ -279,49 +375,66 @@ public class MainAppActivity extends AppCompatActivity {
 
 			publishProgress(2);
 			Log.d(TAG, "doInBackground: published 2");
-			defineCurrentUser();
+			if (!defineCurrentUser()) {
+				Log.e(TAG, "Aborting: Current user not defined");
+				return null;
+			}
 
 			publishProgress(3);
 			Log.d(TAG, "doInBackground: published 3");
-			defineNearbyUsers();
+			if (locations[0] != null) {
+				defineNearbyUsers();
+			} else {
+				Log.e(TAG, "Aborting: Location not initialized");
+			}
 			return null;
 		}
 
-		private void updateLocationInDB(Location location1) {
-			if (location1 == null) {
-				try {
-					Thread.sleep(5000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				updateLocationInDB(thisLocation);
-			} else {
-				myService.updateLocationFieldInUsersTokens("latlng", new GeoPoint(location1.getLatitude(), location1.getLongitude()));
+		private void updateLocationInDB(Location location) {
+			if (location == null || myService == null || !isBound) {
+				Log.e(TAG, "Cannot update location: location or service is null");
+				return;
 			}
+			myService.updateLocationFieldInUsersTokens("latlng", new GeoPoint(location.getLatitude(), location.getLongitude()));
 		}
 
-		private void defineCurrentUser() {
+		private boolean defineCurrentUser() {
+			if (myService == null || !isBound) {
+				Log.e(TAG, "Service not bound or null");
+				return false;
+			}
 			User currentUser = myService.getCurrentUser();
 			if (currentUser == null) {
-				try {
-					Thread.sleep(5000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				defineCurrentUser();
+				Log.e(TAG, "Current user is null");
+				return false;
 			}
+			// Получаем email из FirebaseAuth
+			FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+			String email = firebaseUser != null ? firebaseUser.getEmail() : "unknown";
+			Log.d(TAG, "Current user defined: " + email);
+			return true;
 		}
 
 		private void defineNearbyUsers() {
-			List<User> nearbyUsers = myService.getNearbyUsers();
-			if (nearbyUsers == null) {
-				try {
-					Thread.sleep(5000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				defineNearbyUsers();
+			if (myService == null || !isBound) {
+				Log.e(TAG, "Service not bound or null");
+				return;
 			}
+			myService.getNearbyUsersAsync(51, true, new MyDBService.NearbyUsersCallback() {
+				@Override
+				public void onNearbyUsersLoaded(List<User> users) {
+					Log.d(TAG, "Nearby users loaded: " + users.size());
+					// Передаем пользователей в OnlineFragment, если он активен
+					if (selectedFragment instanceof OnlineFragment) {
+						((OnlineFragment) selectedFragment).updateUsers(users);
+					}
+				}
+
+				@Override
+				public void onError(Exception e) {
+					Log.e(TAG, "Failed to retrieve nearby users", e);
+				}
+			});
 		}
 
 		@Override

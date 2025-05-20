@@ -17,7 +17,7 @@ import com.example.DatingApp.OwnProfileActivity;
 import com.example.DatingApp.ProfileActivity;
 import com.example.DatingApp.R;
 import com.example.DatingApp.Users.User;
-import com.bumptech.glide.Glide;  // Подключи библиотеку Glide для работы с изображениями
+import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
 
@@ -25,7 +25,7 @@ public class OnlineRecyclerViewAdapter extends RecyclerView.Adapter<OnlineRecycl
 
     private static final String TAG = "RecyclerViewAdapter";
 
-    private ArrayList<User> mUsers;  // Список пользователей
+    private ArrayList<User> mUsers;
     private Context mContext;
 
     public OnlineRecyclerViewAdapter(Context context, ArrayList<User> users) {
@@ -44,10 +44,21 @@ public class OnlineRecyclerViewAdapter extends RecyclerView.Adapter<OnlineRecycl
     public void onBindViewHolder(ViewHolder holder, @SuppressLint("RecyclerView") final int position) {
         Log.d(TAG, "onBindViewHolder: called.");
 
-        User user = mUsers.get(position); // Используем список пользователей
-        holder.userName.setText(user.getName());  // Имя пользователя
+        User user = mUsers.get(position);
+        holder.userName.setText(user.getName());
 
-        holder.distance.setText(user.getDistance()); // Показать расстояние
+        holder.distance.setText(user.getDistance());
+
+        // Загрузка изображения с помощью Glide, если img_url доступен
+        if (user.getImg_url() != null && !user.getImg_url().isEmpty()) {
+            Glide.with(mContext)
+                    .load(user.getImg_url())
+                    .placeholder(R.drawable.placeholder_image) // Укажите запасное изображение
+                    .error(R.drawable.error_image) // Укажите изображение для ошибки
+                    .into(holder.image);
+        } else {
+            holder.image.setImageResource(R.drawable.placeholder_image); // Укажите запасное изображение
+        }
 
         holder.parentLayout.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -55,13 +66,12 @@ public class OnlineRecyclerViewAdapter extends RecyclerView.Adapter<OnlineRecycl
                 Log.d(TAG, "onClick: clicked on: " + user.getName());
 
                 Intent intent;
-                // Передаем данные о пользователе в активность
                 if (position == 0) {
                     intent = new Intent(mContext, OwnProfileActivity.class);
                 } else {
                     intent = new Intent(mContext, ProfileActivity.class);
                 }
-                intent.putExtra("USER_ID", user.getUid());  // Пример передачи данных
+                intent.putExtra("USER_ID", user.getUserId()); // Заменено getUid() на getUserId()
                 intent.putExtra("USER_NAME", user.getName());
                 mContext.startActivity(intent);
             }
@@ -70,7 +80,7 @@ public class OnlineRecyclerViewAdapter extends RecyclerView.Adapter<OnlineRecycl
 
     @Override
     public int getItemCount() {
-        return mUsers.size(); // Количество пользователей
+        return mUsers.size();
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder {
@@ -81,10 +91,10 @@ public class OnlineRecyclerViewAdapter extends RecyclerView.Adapter<OnlineRecycl
 
         public ViewHolder(View itemView) {
             super(itemView);
-            image = itemView.findViewById(R.id.newGuy); // Проверка правильности идентификатора
-            userName = itemView.findViewById(R.id.txtUser); // Идентификатор для имени
-            distance = itemView.findViewById(R.id.txtDistance); // Идентификатор для расстояния
-            parentLayout = itemView.findViewById(R.id.parentLayout); // Родительский layout для кликабельности
+            image = itemView.findViewById(R.id.newGuy);
+            userName = itemView.findViewById(R.id.txtUser);
+            distance = itemView.findViewById(R.id.txtDistance);
+            parentLayout = itemView.findViewById(R.id.parentLayout);
         }
     }
 }

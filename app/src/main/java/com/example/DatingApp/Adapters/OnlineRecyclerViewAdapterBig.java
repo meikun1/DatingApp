@@ -49,30 +49,32 @@ public class OnlineRecyclerViewAdapterBig extends RecyclerView.Adapter<OnlineRec
             if (position == 0) {
                 holder.cardView.setRadius(17);
                 holder.cardView.setBackground(null);
-                holder.userName.setText(currentUser.getDisplayName());
-                holder.distance.setText(users.get(position).getDistance());
+                holder.userName.setText(currentUser.getDisplayName() != null ? currentUser.getDisplayName() : "Anonymous");
+                holder.distance.setText(users.get(position).getDistance() != null ? users.get(position).getDistance() + " km" : "Unknown");
             } else {
                 holder.cardView.setBackgroundResource(R.drawable.ic_launcher_background);
-                holder.userName.setText(users.get(position).getName());
-                holder.distance.setText(users.get(position).getDistance());
+                holder.userName.setText(users.get(position).getName() != null ? users.get(position).getName() : "Anonymous");
+                holder.distance.setText(users.get(position).getDistance() != null ? users.get(position).getDistance() + " km" : "Unknown");
             }
 
             holder.parentLayout.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    Log.d(TAG, "onClick: clicked on: ");
+                    Log.d(TAG, "onClick: clicked on: " + (position == 0 ? currentUser.getDisplayName() : users.get(position).getName()));
                     Intent intent;
                     if (position == 0) {
                         intent = new Intent(mContext, OwnProfileActivity.class);
                     } else {
                         intent = new Intent(mContext, ProfileActivity.class);
                         Bundle bundle = new Bundle();
-                        bundle.putString("uid", users.get(position).getUid());
+                        bundle.putString("uid", users.get(position).getUserId()); // Заменено getUid() на getUserId()
                         intent.putExtras(bundle);
                     }
                     mContext.startActivity(intent);
                 }
             });
+        } else {
+            Log.e(TAG, "Current user is null");
         }
     }
 
